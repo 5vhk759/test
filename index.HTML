@@ -2,7 +2,8 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <title>Gantt PMO</title>
+  <title>Gantt PMO TANDEM</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -11,13 +12,40 @@
     }
 
     h1 {
-      margin-bottom: 5px;
+      margin-bottom: 4px;
     }
+
+    .subtitle {
+      margin-bottom: 12px;
+      color: #555;
+    }
+
+    .legend {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+
+    .legend span {
+      padding: 5px 8px;
+      border-radius: 4px;
+      color: white;
+      font-weight: bold;
+    }
+
+    .TERRE { background: #4b7f3f; }
+    .AIR { background: #356aa0; }
+    .MER { background: #24476b; }
+    .SSA { background: #b05a5a; }
+    .AUTRES { background: #777; }
 
     .gantt-wrapper {
       overflow-x: auto;
       border: 1px solid #ccc;
       background: white;
+      max-height: 80vh;
     }
 
     .gantt {
@@ -29,10 +57,10 @@
     .cell {
       border-right: 1px solid #eee;
       border-bottom: 1px solid #eee;
-      padding: 4px;
-      font-size: 11px;
+      padding: 3px;
+      font-size: 10px;
       box-sizing: border-box;
-      height: 34px;
+      height: 36px;
     }
 
     .country {
@@ -40,7 +68,7 @@
       font-weight: bold;
       position: sticky;
       left: 0;
-      z-index: 3;
+      z-index: 4;
       border-right: 1px solid #bbb;
     }
 
@@ -50,47 +78,41 @@
       text-align: center;
       position: sticky;
       top: 0;
-      z-index: 2;
+      z-index: 3;
+      height: 70px;
     }
 
     .pmo {
       position: absolute;
-      height: 22px;
+      height: 24px;
       border-radius: 5px;
       color: white;
       font-size: 11px;
-      padding: 4px 6px;
+      padding: 5px 6px;
       box-sizing: border-box;
       overflow: hidden;
       white-space: nowrap;
-      z-index: 5;
+      z-index: 10;
+      cursor: pointer;
     }
 
-    .TERRE { background: #4b7f3f; }
-    .AIR { background: #356aa0; }
-    .MER { background: #24476b; }
-    .SSA { background: #b05a5a; }
-    .AUTRES { background: #777; }
-
-    .legend {
-      margin: 10px 0;
-      display: flex;
-      gap: 12px;
-      font-size: 13px;
-    }
-
-    .legend span {
-      padding: 5px 8px;
-      color: white;
-      border-radius: 4px;
+    .error {
+      color: #b00020;
+      background: #ffe8e8;
+      border: 1px solid #ffb5b5;
+      padding: 10px;
+      margin-bottom: 12px;
+      display: none;
     }
   </style>
 </head>
 
 <body>
 
-<h1>Gantt PMO</h1>
-<p>Vue par pays / chronologie / PMO</p>
+<h1>Gantt PMO TANDEM</h1>
+<div class="subtitle">Vue chronologique des PMO par pays</div>
+
+<div id="error" class="error"></div>
 
 <div class="legend">
   <span class="TERRE">TERRE</span>
@@ -105,72 +127,81 @@
 </div>
 
 <script>
-const pmos = [
-  {
-    id: "PMO001",
-    nom: "Formation infanterie",
-    armee: "TERRE",
-    pays: "Jordanie",
-    debut: "2026-05-27",
-    fin: "2026-06-20",
-    format: "DIO"
-  },
-  {
-    id: "PMO002",
-    nom: "Appui planification",
-    armee: "TERRE",
-    pays: "Liban",
-    debut: "2026-06-10",
-    fin: "2026-06-25",
-    format: "Conseil"
-  },
-  {
-    id: "PMO003",
-    nom: "Instruction secours",
-    armee: "SSA",
-    pays: "Jordanie",
-    debut: "2026-07-02",
-    fin: "2026-07-12",
-    format: "Stage"
-  },
-  {
-    id: "PMO004",
-    nom: "Coopération navale",
-    armee: "MER",
-    pays: "Égypte",
-    debut: "2026-08-05",
-    fin: "2026-08-21",
-    format: "Expertise"
-  },
-  {
-    id: "PMO005",
-    nom: "Formation drone",
-    armee: "AIR",
-    pays: "Liban",
-    debut: "2026-09-01",
-    fin: "2026-09-18",
-    format: "Formation"
-  }
-];
+const GRIST_API_URL =
+  "https://grist.numerique.gouv.fr/o/tandem/api/docs/bXDJ6WqDCD4kERVKCzUmfn/t/PMO_MASTER/records";
 
-// -----------------------------
-// Paramètres principaux
-// -----------------------------
-
-const startDate = new Date("2026-05-01");
-const endDate = new Date("2026-10-31");
-
-const dayWidth = 28;
-const countryColumnWidth = 150;
+const dayWidth = 24;
+const countryColumnWidth = 160;
 const rowHeight = 42;
-const headerHeight = 68;
+const headerHeight = 70;
 
-// -----------------------------
-// Fonctions dates
-// -----------------------------
+function showError(message) {
+  const error = document.getElementById("error");
+  error.style.display = "block";
+  error.innerText = message;
+}
+
+function normalizeArmy(value) {
+  if (!value) return "AUTRES";
+
+  const v = String(value)
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (v.includes("TERRE")) return "TERRE";
+  if (v.includes("AIR")) return "AIR";
+  if (v.includes("MER") || v.includes("MARINE")) return "MER";
+  if (v.includes("SSA")) return "SSA";
+
+  return "AUTRES";
+}
+
+function parseGristDate(value) {
+  if (!value) return null;
+
+  if (typeof value === "number") {
+    return new Date(value * 1000);
+  }
+
+  return new Date(value);
+}
+
+async function chargerPMO() {
+  const response = await fetch(GRIST_API_URL);
+
+  if (!response.ok) {
+    throw new Error(
+      "Impossible de lire la table Grist. Vérifie que le document est public ou que le nom de table est bien PMO_MASTER."
+    );
+  }
+
+  const data = await response.json();
+
+  return data.records
+    .map(r => {
+      const f = r.fields;
+
+      return {
+        id: f["Id. PMO"] || "",
+        pays: f["Pays"] || "Sans pays",
+        nom: f["Nom PMO"] || "",
+        armee: normalizeArmy(f["Armée"]),
+        debut: parseGristDate(f["Date Début"]),
+        fin: parseGristDate(f["Date de Fin"]),
+        format: f["Format demandé"] || "",
+        objectifs: f["Objectifs"] || "",
+        responsable: f["Resp. Tandem"] || "",
+        formatPropose: f["Format proposé"] || "",
+        points: f["Pts. Particuliers"] || ""
+      };
+    })
+    .filter(p => p.debut && p.fin && !isNaN(p.debut) && !isNaN(p.fin));
+}
 
 function daysBetween(a, b) {
-  return Math.round((b - a) / (1000 * 60 * 60 * 24));
+  const oneDay = 1000 * 60 * 60 * 24;
+  return Math.round((b - a) / oneDay);
 }
 
 function addDays(date, days) {
@@ -187,8 +218,8 @@ function getISOWeek(date) {
   return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
 
-function formatDay(date) {
-  return String(date.getDate()).padStart(2, "0");
+function formatDate(date) {
+  return date.toISOString().slice(0, 10);
 }
 
 function formatMonth(date) {
@@ -199,93 +230,117 @@ function formatQuarter(date) {
   return "T" + (Math.floor(date.getMonth() / 3) + 1);
 }
 
-// -----------------------------
-// Construction Gantt
-// -----------------------------
+function construireGantt(pmos) {
+  const gantt = document.getElementById("gantt");
+  gantt.innerHTML = "";
 
-const countries = [...new Set(pmos.map(p => p.pays))].sort();
-const totalDays = daysBetween(startDate, endDate) + 1;
-const gantt = document.getElementById("gantt");
+  if (pmos.length === 0) {
+    showError("Aucun PMO exploitable trouvé. Vérifie les dates Début / Fin dans Grist.");
+    return;
+  }
 
-gantt.style.gridTemplateColumns = `${countryColumnWidth}px repeat(${totalDays}, ${dayWidth}px)`;
-gantt.style.gridTemplateRows = `${headerHeight}px repeat(${countries.length}, ${rowHeight}px)`;
-gantt.style.width = `${countryColumnWidth + totalDays * dayWidth}px`;
-gantt.style.height = `${headerHeight + countries.length * rowHeight}px`;
+  const minDate = new Date(Math.min(...pmos.map(p => p.debut)));
+  const maxDate = new Date(Math.max(...pmos.map(p => p.fin)));
 
-// Coin supérieur gauche
-const corner = document.createElement("div");
-corner.className = "cell country header";
-corner.style.gridColumn = "1";
-corner.style.gridRow = "1";
-corner.innerHTML = "Pays";
-gantt.appendChild(corner);
+  const startDate = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+  const endDate = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0);
 
-// Header jours / semaines / mois / trimestres
-for (let i = 0; i < totalDays; i++) {
-  const current = addDays(startDate, i);
-  const cell = document.createElement("div");
+  const countries = [...new Set(pmos.map(p => p.pays))].sort();
+  const totalDays = daysBetween(startDate, endDate) + 1;
 
-  cell.className = "cell header";
-  cell.style.gridColumn = `${i + 2}`;
-  cell.style.gridRow = "1";
+  gantt.style.gridTemplateColumns =
+    `${countryColumnWidth}px repeat(${totalDays}, ${dayWidth}px)`;
 
-  const isMonday = current.getDay() === 1;
-  const isFirstDayOfMonth = current.getDate() === 1;
+  gantt.style.gridTemplateRows =
+    `${headerHeight}px repeat(${countries.length}, ${rowHeight}px)`;
 
-  cell.innerHTML = `
-    <div>${formatDay(current)}</div>
-    ${isMonday ? `<div>S${getISOWeek(current)}</div>` : ""}
-    ${isFirstDayOfMonth ? `<div>${formatMonth(current)}</div>` : ""}
-    ${isFirstDayOfMonth ? `<div>${formatQuarter(current)}</div>` : ""}
-  `;
+  gantt.style.width =
+    `${countryColumnWidth + totalDays * dayWidth}px`;
 
-  gantt.appendChild(cell);
-}
+  gantt.style.height =
+    `${headerHeight + countries.length * rowHeight}px`;
 
-// Lignes pays
-countries.forEach((country, rowIndex) => {
-  const countryCell = document.createElement("div");
-  countryCell.className = "cell country";
-  countryCell.style.gridColumn = "1";
-  countryCell.style.gridRow = `${rowIndex + 2}`;
-  countryCell.innerHTML = country;
-  gantt.appendChild(countryCell);
+  const corner = document.createElement("div");
+  corner.className = "cell country header";
+  corner.style.gridColumn = "1";
+  corner.style.gridRow = "1";
+  corner.innerHTML = "Pays";
+  gantt.appendChild(corner);
 
   for (let i = 0; i < totalDays; i++) {
+    const current = addDays(startDate, i);
     const cell = document.createElement("div");
-    cell.className = "cell";
+
+    cell.className = "cell header";
     cell.style.gridColumn = `${i + 2}`;
-    cell.style.gridRow = `${rowIndex + 2}`;
+    cell.style.gridRow = "1";
+
+    const isMonday = current.getDay() === 1;
+    const isFirstDayOfMonth = current.getDate() === 1;
+
+    cell.innerHTML = `
+      <div>${String(current.getDate()).padStart(2, "0")}</div>
+      ${isMonday ? `<div>S${getISOWeek(current)}</div>` : ""}
+      ${isFirstDayOfMonth ? `<div>${formatMonth(current)}</div>` : ""}
+      ${isFirstDayOfMonth ? `<div>${formatQuarter(current)}</div>` : ""}
+    `;
+
     gantt.appendChild(cell);
   }
-});
 
-// Barres PMO
-pmos.forEach(pmo => {
-  const rowIndex = countries.indexOf(pmo.pays);
-  const debut = new Date(pmo.debut);
-  const fin = new Date(pmo.fin);
+  countries.forEach((country, rowIndex) => {
+    const countryCell = document.createElement("div");
+    countryCell.className = "cell country";
+    countryCell.style.gridColumn = "1";
+    countryCell.style.gridRow = `${rowIndex + 2}`;
+    countryCell.innerHTML = country;
+    gantt.appendChild(countryCell);
 
-  const offsetDays = daysBetween(startDate, debut);
-  const durationDays = daysBetween(debut, fin) + 1;
+    for (let i = 0; i < totalDays; i++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.style.gridColumn = `${i + 2}`;
+      cell.style.gridRow = `${rowIndex + 2}`;
+      gantt.appendChild(cell);
+    }
+  });
 
-  const bar = document.createElement("div");
-  bar.className = `pmo ${pmo.armee}`;
-  bar.style.left = `${countryColumnWidth + offsetDays * dayWidth}px`;
-  bar.style.top = `${headerHeight + rowIndex * rowHeight + 9}px`;
-  bar.style.width = `${durationDays * dayWidth - 4}px`;
+  pmos.forEach(pmo => {
+    const rowIndex = countries.indexOf(pmo.pays);
+    const offsetDays = daysBetween(startDate, pmo.debut);
+    const durationDays = daysBetween(pmo.debut, pmo.fin) + 1;
 
-  bar.title = `${pmo.id} - ${pmo.nom}
+    const bar = document.createElement("div");
+    bar.className = `pmo ${pmo.armee}`;
+
+    bar.style.left =
+      `${countryColumnWidth + offsetDays * dayWidth}px`;
+
+    bar.style.top =
+      `${headerHeight + rowIndex * rowHeight + 9}px`;
+
+    bar.style.width =
+      `${Math.max(durationDays * dayWidth - 4, 30)}px`;
+
+    bar.innerHTML = `${pmo.id} - ${pmo.nom}`;
+
+    bar.title =
+`${pmo.id} - ${pmo.nom}
 Pays : ${pmo.pays}
 Armée : ${pmo.armee}
-Début : ${pmo.debut}
-Fin : ${pmo.fin}
-Format : ${pmo.format}`;
+Début : ${formatDate(pmo.debut)}
+Fin : ${formatDate(pmo.fin)}
+Format demandé : ${pmo.format}
+Responsable TANDEM : ${pmo.responsable}
+Points particuliers : ${pmo.points}`;
 
-  bar.innerHTML = `${pmo.id} - ${pmo.nom}`;
+    gantt.appendChild(bar);
+  });
+}
 
-  gantt.appendChild(bar);
-});
+chargerPMO()
+  .then(pmos => construireGantt(pmos))
+  .catch(error => showError(error.message));
 </script>
 
 </body>
