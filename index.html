@@ -2,346 +2,1061 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gantt PMO TANDEM</title>
 
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+
   <style>
+    :root {
+      --primary: #3e5de7;
+      --primary-dark: #2845c1;
+      --primary-light: #dce6ff;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --border-dark: #cbd5e1;
+      --shadow-lg: 0 10px 40px rgba(0,0,0,0.15);
+
+      --row-height: 46px;
+      --country-width: 230px;
+      --cell-width: 34px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background: #f7f7f7;
-    }
-
-    h1 {
-      margin-bottom: 4px;
-    }
-
-    .subtitle {
-      margin-bottom: 12px;
-      color: #555;
-    }
-
-    .legend {
+      font-family: Inter, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
       display: flex;
-      gap: 10px;
-      margin-bottom: 12px;
-      font-size: 13px;
-      flex-wrap: wrap;
-    }
-
-    .legend span {
-      padding: 5px 8px;
-      border-radius: 4px;
-      color: white;
-      font-weight: bold;
-    }
-
-    .TERRE { background: #4b7f3f; }
-    .AIR { background: #356aa0; }
-    .MER { background: #24476b; }
-    .SSA { background: #b05a5a; }
-    .AUTRES { background: #777; }
-
-    .gantt-wrapper {
-      overflow-x: auto;
-      border: 1px solid #ccc;
-      background: white;
-      max-height: 80vh;
-    }
-
-    .gantt {
-      display: grid;
-      position: relative;
-      min-width: 1400px;
-    }
-
-    .cell {
-      border-right: 1px solid #eee;
-      border-bottom: 1px solid #eee;
-      padding: 3px;
-      font-size: 10px;
-      box-sizing: border-box;
-      height: 36px;
-    }
-
-    .country {
-      background: #f0f0f0;
-      font-weight: bold;
-      position: sticky;
-      left: 0;
-      z-index: 4;
-      border-right: 1px solid #bbb;
+      flex-direction: column;
     }
 
     .header {
-      background: #e9eef5;
-      font-weight: bold;
-      text-align: center;
-      position: sticky;
-      top: 0;
-      z-index: 3;
-      height: 70px;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
     }
 
-    .pmo {
+    .header-left, .header-center, .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--primary);
+      white-space: nowrap;
+    }
+
+    .btn {
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 0.78rem;
+      color: var(--text);
+    }
+
+    .btn:hover { background: var(--bg); }
+    .btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    select, input {
+      padding: 7px 9px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: white;
+      font-size: 0.78rem;
+    }
+
+    .period-label {
+      min-width: 170px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .gantt-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      background: white;
+    }
+
+    .gantt-header {
+      display: flex;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .country-header {
+      width: var(--country-width);
+      min-width: var(--country-width);
+      padding: 10px 12px;
+      font-weight: 700;
+      border-right: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 0.82rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .timeline-header {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .months-row, .days-row {
+      display: flex;
+      white-space: nowrap;
+    }
+
+    .month-cell {
+      height: 24px;
+      padding: 4px 0;
+      text-align: center;
+      font-size: 0.70rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      border-right: 1px solid var(--border);
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+
+    .day-cell {
+      height: 31px;
+      width: var(--cell-width);
+      min-width: var(--cell-width);
+      padding: 5px 2px;
+      text-align: center;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      border-right: 1px solid var(--border);
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+
+    .day-cell.weekend { background: #fef2f2; color: #ef4444; }
+    .day-cell.today { background: var(--primary); color: white; font-weight: 700; }
+    .day-cell.month-start { border-left: 2px solid var(--border-dark); }
+
+    .gantt-body {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .country-list {
+      width: var(--country-width);
+      min-width: var(--country-width);
+      overflow-y: auto;
+      border-right: 1px solid var(--border);
+      background: var(--card-bg);
+    }
+
+    .country-row {
+      height: var(--row-height);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+
+    .country-row:hover { background: var(--bg); }
+    .country-name { font-size: 0.82rem; font-weight: 700; }
+    .country-meta { font-size: 0.66rem; color: var(--text-muted); margin-top: 2px; }
+
+    .timeline-scroll {
+      flex: 1;
+      overflow: auto;
+      position: relative;
+    }
+
+    .timeline-grid {
+      position: relative;
+      min-height: 100%;
+    }
+
+    .grid-row {
+      height: var(--row-height);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+    }
+
+    .grid-cell {
+      width: var(--cell-width);
+      min-width: var(--cell-width);
+      height: 100%;
+      border-right: 1px solid #f1f5f9;
+      flex-shrink: 0;
+    }
+
+    .grid-cell.weekend { background: #fef2f2; }
+    .grid-cell.today { background: rgba(62, 93, 231, 0.08); }
+    .grid-cell.month-start { border-left: 1px solid var(--border-dark); }
+
+    .pmo-bar {
       position: absolute;
       height: 24px;
       border-radius: 5px;
       color: white;
-      font-size: 11px;
-      padding: 5px 6px;
-      box-sizing: border-box;
-      overflow: hidden;
-      white-space: nowrap;
-      z-index: 10;
+      font-size: 0.70rem;
+      font-weight: 600;
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
       cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      z-index: 10;
+      transition: all 0.15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    }
+
+    .pmo-bar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+      z-index: 50;
+    }
+
+    .pmo-bar.selected {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+      z-index: 60;
+    }
+
+    .TERRE { background: linear-gradient(135deg, #3f7f3f, #6aa84f); }
+    .AIR { background: linear-gradient(135deg, #356aa0, #60a5fa); }
+    .MER { background: linear-gradient(135deg, #24476b, #3b82f6); }
+    .SSA { background: linear-gradient(135deg, #b05a5a, #ef7777); }
+    .AUTRES { background: linear-gradient(135deg, #64748b, #94a3b8); }
+
+    .today-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ef4444;
+      z-index: 30;
+      pointer-events: none;
+    }
+
+    .today-line::before {
+      content: "▼";
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.65rem;
+      color: #ef4444;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      padding: 8px 14px;
+      background: var(--card-bg);
+      border-top: 1px solid var(--border);
+      font-size: 0.72rem;
+      align-items: center;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    .tooltip {
+      position: fixed;
+      background: #111827;
+      color: white;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.76rem;
+      z-index: 1000;
+      max-width: 330px;
+      box-shadow: var(--shadow-lg);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.12s;
+      line-height: 1.35;
+    }
+
+    .tooltip.visible { opacity: 1; }
+    .tooltip-title { font-weight: 700; margin-bottom: 6px; }
+    .tooltip-row { display: flex; justify-content: space-between; gap: 14px; opacity: 0.92; margin-top: 2px; }
+    .tooltip-row span:first-child { color: #cbd5e1; }
+
+    .side-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 390px;
+      height: 100%;
+      background: white;
+      border-left: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      transform: translateX(100%);
+      transition: transform 0.20s ease;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .side-panel.open { transform: translateX(0); }
+
+    .panel-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-weight: 800;
+      color: var(--primary);
+      font-size: 0.95rem;
+    }
+
+    .panel-close {
+      border: none;
+      background: transparent;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .panel-content {
+      padding: 14px 16px;
+      overflow-y: auto;
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+
+    .detail-row {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 0;
+    }
+
+    .detail-label {
+      color: var(--text-muted);
+      font-size: 0.70rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 2px;
     }
 
     .error {
-      color: #b00020;
-      background: #ffe8e8;
-      border: 1px solid #ffb5b5;
-      padding: 10px;
-      margin-bottom: 12px;
       display: none;
+      padding: 10px 14px;
+      background: #fee2e2;
+      color: #991b1b;
+      border-bottom: 1px solid #fecaca;
+      font-size: 0.82rem;
+    }
+
+    .loading {
+      padding: 18px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    @media print {
+      .header, .side-panel { display: none !important; }
+      body { background: white; }
+      .timeline-scroll, .country-list { overflow: visible !important; }
+      @page { size: landscape; margin: 1cm; }
     }
   </style>
 </head>
 
 <body>
+  <div class="header">
+    <div class="header-left">
+      <h1>Gantt PMO TANDEM</h1>
+      <select id="sortSelect" onchange="changeSort(this.value)">
+        <option value="country">Tri : Pays</option>
+        <option value="date">Tri : Date début</option>
+        <option value="army">Tri : Armée</option>
+      </select>
+    </div>
 
-<h1>Gantt PMO TANDEM</h1>
-<div class="subtitle">Vue chronologique des PMO par pays</div>
+    <div class="header-center">
+      <button class="btn" onclick="navigate(-1)">◀</button>
+      <button class="btn" onclick="goToday()">Aujourd'hui</button>
+      <button class="btn" onclick="fitToPMO()">Ajuster</button>
+      <button class="btn" onclick="navigate(1)">▶</button>
+      <span class="period-label" id="periodLabel"></span>
+      <button class="btn" data-view="week" onclick="setView('week')">Sem</button>
+      <button class="btn active" data-view="month" onclick="setView('month')">Mois</button>
+      <button class="btn" data-view="quarter" onclick="setView('quarter')">Trim</button>
+      <button class="btn" data-view="year" onclick="setView('year')">An</button>
+    </div>
 
-<div id="error" class="error"></div>
+    <div class="header-right">
+      <select id="armyFilter" onchange="render()">
+        <option value="">Toutes armées</option>
+        <option value="TERRE">TERRE</option>
+        <option value="AIR">AIR</option>
+        <option value="MER">MER</option>
+        <option value="SSA">SSA</option>
+        <option value="AUTRES">AUTRES</option>
+      </select>
 
-<div class="legend">
-  <span class="TERRE">TERRE</span>
-  <span class="AIR">AIR</span>
-  <span class="MER">MER</span>
-  <span class="SSA">SSA</span>
-  <span class="AUTRES">AUTRES</span>
-</div>
+      <input id="searchInput" placeholder="Rechercher PMO / pays..." oninput="render()" />
 
-<div class="gantt-wrapper">
-  <div id="gantt" class="gantt"></div>
-</div>
+      <button class="btn" onclick="window.print()">PDF</button>
+    </div>
+  </div>
 
-<script>
-const GRIST_API_URL =
-  "https://grist.numerique.gouv.fr/o/tandem/api/docs/bXDJ6WqDCD4kERVKCzUmfn/t/PMO_MASTER/records";
+  <div id="error" class="error"></div>
 
-const dayWidth = 24;
-const countryColumnWidth = 160;
-const rowHeight = 42;
-const headerHeight = 70;
+  <div class="main">
+    <div class="gantt-wrapper">
+      <div class="gantt-header">
+        <div class="country-header">
+          <span>Pays</span>
+          <span id="pmoCount">0 PMO</span>
+        </div>
+        <div class="timeline-header">
+          <div id="monthsHeader" class="months-row"></div>
+          <div id="daysHeader" class="days-row"></div>
+        </div>
+      </div>
 
-function showError(message) {
-  const error = document.getElementById("error");
-  error.style.display = "block";
-  error.innerText = message;
-}
+      <div class="gantt-body">
+        <div id="countryList" class="country-list"></div>
+        <div id="timelineScroll" class="timeline-scroll">
+          <div id="timelineGrid" class="timeline-grid">
+            <div class="loading">Chargement des PMO...</div>
+          </div>
+        </div>
+      </div>
 
-function normalizeArmy(value) {
-  if (!value) return "AUTRES";
+      <div class="legend">
+        <div class="legend-item"><div class="legend-color TERRE"></div>TERRE</div>
+        <div class="legend-item"><div class="legend-color AIR"></div>AIR</div>
+        <div class="legend-item"><div class="legend-color MER"></div>MER</div>
+        <div class="legend-item"><div class="legend-color SSA"></div>SSA</div>
+        <div class="legend-item"><div class="legend-color AUTRES"></div>AUTRES</div>
+      </div>
+    </div>
 
-  const v = String(value)
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    <div id="sidePanel" class="side-panel">
+      <div class="panel-header">
+        <div id="panelTitle" class="panel-title">PMO</div>
+        <button class="panel-close" onclick="closePanel()">×</button>
+      </div>
+      <div id="panelContent" class="panel-content"></div>
+    </div>
+  </div>
 
-  if (v.includes("TERRE")) return "TERRE";
-  if (v.includes("AIR")) return "AIR";
-  if (v.includes("MER") || v.includes("MARINE")) return "MER";
-  if (v.includes("SSA")) return "SSA";
+  <div id="tooltip" class="tooltip"></div>
 
-  return "AUTRES";
-}
+  <script>
+    // ─────────────────────────────────────────────────────────────
+    // CONFIGURATION GRIST
+    // ─────────────────────────────────────────────────────────────
+    const TABLE_ID = "PMO_MASTER";
 
-function parseGristDate(value) {
-  if (!value) return null;
+    // Champs de ta table PMO_MASTER
+    const FIELDS = {
+      id: "Id. PMO",
+      pays: "Pays",
+      nom: "Nom PMO",
+      armee: "Armée",
+      debut: "Date Début",
+      fin: "Date de Fin",
+      formatDemande: "Format demandé",
+      objectifs: "Objectifs",
+      responsable: "Resp. Tandem",
+      formatPropose: "Format proposé",
+      points: "Pts. Particuliers",
+      renfort: "Besoin en renfort",
+      formation: "Besoin en formation"
+    };
 
-  if (typeof value === "number") {
-    return new Date(value * 1000);
-  }
+    const VIEW_CONFIG = {
+      week:    { label: "Semaine", days: 21, cellWidth: 46, step: 7 },
+      month:   { label: "Mois",    days: 75, cellWidth: 28, step: "month" },
+      quarter: { label: "Trim",    days: 130, cellWidth: 18, step: "quarter" },
+      year:    { label: "Année",   days: 370, cellWidth: 6, step: "year" }
+    };
 
-  return new Date(value);
-}
+    const MONTHS_SHORT = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
 
-async function chargerPMO() {
-  const response = await fetch(GRIST_API_URL);
+    let allPMO = [];
+    let currentView = localStorage.getItem("pmo_gantt_view") || "month";
+    let viewStartDate = new Date();
+    let selectedPMOId = null;
+    let gristReady = false;
 
-  if (!response.ok) {
-    throw new Error(
-      "Impossible de lire la table Grist. Vérifie que le document est public ou que le nom de table est bien PMO_MASTER."
-    );
-  }
-
-  const data = await response.json();
-
-  return data.records
-    .map(r => {
-      const f = r.fields;
-
-      return {
-        id: f["Id. PMO"] || "",
-        pays: f["Pays"] || "Sans pays",
-        nom: f["Nom PMO"] || "",
-        armee: normalizeArmy(f["Armée"]),
-        debut: parseGristDate(f["Date Début"]),
-        fin: parseGristDate(f["Date de Fin"]),
-        format: f["Format demandé"] || "",
-        objectifs: f["Objectifs"] || "",
-        responsable: f["Resp. Tandem"] || "",
-        formatPropose: f["Format proposé"] || "",
-        points: f["Pts. Particuliers"] || ""
-      };
-    })
-    .filter(p => p.debut && p.fin && !isNaN(p.debut) && !isNaN(p.fin));
-}
-
-function daysBetween(a, b) {
-  const oneDay = 1000 * 60 * 60 * 24;
-  return Math.round((b - a) / oneDay);
-}
-
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
-function getISOWeek(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-}
-
-function formatDate(date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function formatMonth(date) {
-  return date.toLocaleDateString("fr-FR", { month: "short" });
-}
-
-function formatQuarter(date) {
-  return "T" + (Math.floor(date.getMonth() / 3) + 1);
-}
-
-function construireGantt(pmos) {
-  const gantt = document.getElementById("gantt");
-  gantt.innerHTML = "";
-
-  if (pmos.length === 0) {
-    showError("Aucun PMO exploitable trouvé. Vérifie les dates Début / Fin dans Grist.");
-    return;
-  }
-
-  const minDate = new Date(Math.min(...pmos.map(p => p.debut)));
-  const maxDate = new Date(Math.max(...pmos.map(p => p.fin)));
-
-  const startDate = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
-  const endDate = new Date(maxDate.getFullYear(), maxDate.getMonth() + 1, 0);
-
-  const countries = [...new Set(pmos.map(p => p.pays))].sort();
-  const totalDays = daysBetween(startDate, endDate) + 1;
-
-  gantt.style.gridTemplateColumns =
-    `${countryColumnWidth}px repeat(${totalDays}, ${dayWidth}px)`;
-
-  gantt.style.gridTemplateRows =
-    `${headerHeight}px repeat(${countries.length}, ${rowHeight}px)`;
-
-  gantt.style.width =
-    `${countryColumnWidth + totalDays * dayWidth}px`;
-
-  gantt.style.height =
-    `${headerHeight + countries.length * rowHeight}px`;
-
-  const corner = document.createElement("div");
-  corner.className = "cell country header";
-  corner.style.gridColumn = "1";
-  corner.style.gridRow = "1";
-  corner.innerHTML = "Pays";
-  gantt.appendChild(corner);
-
-  for (let i = 0; i < totalDays; i++) {
-    const current = addDays(startDate, i);
-    const cell = document.createElement("div");
-
-    cell.className = "cell header";
-    cell.style.gridColumn = `${i + 2}`;
-    cell.style.gridRow = "1";
-
-    const isMonday = current.getDay() === 1;
-    const isFirstDayOfMonth = current.getDate() === 1;
-
-    cell.innerHTML = `
-      <div>${String(current.getDate()).padStart(2, "0")}</div>
-      ${isMonday ? `<div>S${getISOWeek(current)}</div>` : ""}
-      ${isFirstDayOfMonth ? `<div>${formatMonth(current)}</div>` : ""}
-      ${isFirstDayOfMonth ? `<div>${formatQuarter(current)}</div>` : ""}
-    `;
-
-    gantt.appendChild(cell);
-  }
-
-  countries.forEach((country, rowIndex) => {
-    const countryCell = document.createElement("div");
-    countryCell.className = "cell country";
-    countryCell.style.gridColumn = "1";
-    countryCell.style.gridRow = `${rowIndex + 2}`;
-    countryCell.innerHTML = country;
-    gantt.appendChild(countryCell);
-
-    for (let i = 0; i < totalDays; i++) {
-      const cell = document.createElement("div");
-      cell.className = "cell";
-      cell.style.gridColumn = `${i + 2}`;
-      cell.style.gridRow = `${rowIndex + 2}`;
-      gantt.appendChild(cell);
+    // ─────────────────────────────────────────────────────────────
+    // OUTILS
+    // ─────────────────────────────────────────────────────────────
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return "";
+      const div = document.createElement("div");
+      div.textContent = String(text);
+      return div.innerHTML;
     }
-  });
 
-  pmos.forEach(pmo => {
-    const rowIndex = countries.indexOf(pmo.pays);
-    const offsetDays = daysBetween(startDate, pmo.debut);
-    const durationDays = daysBetween(pmo.debut, pmo.fin) + 1;
+    function normalizeArmy(value) {
+      if (!value) return "AUTRES";
+      const v = String(value).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (v.includes("TERRE")) return "TERRE";
+      if (v.includes("AIR")) return "AIR";
+      if (v.includes("MER") || v.includes("MARINE")) return "MER";
+      if (v.includes("SSA")) return "SSA";
+      return "AUTRES";
+    }
 
-    const bar = document.createElement("div");
-    bar.className = `pmo ${pmo.armee}`;
+    function gristToDate(value) {
+      if (value === null || value === undefined || value === "") return null;
 
-    bar.style.left =
-      `${countryColumnWidth + offsetDays * dayWidth}px`;
+      if (value instanceof Date) return value;
 
-    bar.style.top =
-      `${headerHeight + rowIndex * rowHeight + 9}px`;
+      if (typeof value === "number") {
+        // Grist Date/DateTime sort généralement en secondes Unix
+        if (value > 100000000000) return new Date(value);
+        return new Date(value * 1000);
+      }
 
-    bar.style.width =
-      `${Math.max(durationDays * dayWidth - 4, 30)}px`;
+      const d = new Date(value);
+      return isNaN(d) ? null : d;
+    }
 
-    bar.innerHTML = `${pmo.id} - ${pmo.nom}`;
+    function formatDate(d) {
+      if (!d) return "-";
+      return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+    }
 
-    bar.title =
-`${pmo.id} - ${pmo.nom}
-Pays : ${pmo.pays}
-Armée : ${pmo.armee}
-Début : ${formatDate(pmo.debut)}
-Fin : ${formatDate(pmo.fin)}
-Format demandé : ${pmo.format}
-Responsable TANDEM : ${pmo.responsable}
-Points particuliers : ${pmo.points}`;
+    function formatDateShort(d) {
+      if (!d) return "-";
+      return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+    }
 
-    gantt.appendChild(bar);
-  });
-}
+    function addDays(d, n) {
+      const r = new Date(d);
+      r.setDate(r.getDate() + n);
+      return r;
+    }
 
-chargerPMO()
-  .then(pmos => construireGantt(pmos))
-  .catch(error => showError(error.message));
-</script>
+    function getDaysDiff(a, b) {
+      return Math.round((b - a) / 86400000);
+    }
 
+    function getStartOfWeek(d) {
+      const r = new Date(d);
+      const day = r.getDay() || 7;
+      r.setDate(r.getDate() - day + 1);
+      r.setHours(0,0,0,0);
+      return r;
+    }
+
+    function getStartOfMonth(d) {
+      return new Date(d.getFullYear(), d.getMonth(), 1);
+    }
+
+    function getStartOfQuarter(d) {
+      return new Date(d.getFullYear(), Math.floor(d.getMonth() / 3) * 3, 1);
+    }
+
+    function getStartOfYear(d) {
+      return new Date(d.getFullYear(), 0, 1);
+    }
+
+    function getWeekNumber(date) {
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
+
+    function isWeekend(d) {
+      return d.getDay() === 0 || d.getDay() === 6;
+    }
+
+    function isSameDay(a, b) {
+      return a && b && a.toDateString() === b.toDateString();
+    }
+
+    function showError(message) {
+      const el = document.getElementById("error");
+      el.style.display = "block";
+      el.innerText = message;
+    }
+
+    function clearError() {
+      const el = document.getElementById("error");
+      el.style.display = "none";
+      el.innerText = "";
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // CONVERSION GRIST → PMO
+    // ─────────────────────────────────────────────────────────────
+    function convertRecords(records) {
+      if (!records) return [];
+
+      return records.map(r => {
+        const f = r.fields || r;
+
+        const debut = gristToDate(f[FIELDS.debut]);
+        const fin = gristToDate(f[FIELDS.fin]);
+
+        return {
+          gristId: r.id,
+          id: f[FIELDS.id] || ("PMO-" + r.id),
+          pays: f[FIELDS.pays] || "Sans pays",
+          nom: f[FIELDS.nom] || "",
+          armee: normalizeArmy(f[FIELDS.armee]),
+          debut,
+          fin,
+          formatDemande: f[FIELDS.formatDemande] || "",
+          objectifs: f[FIELDS.objectifs] || "",
+          responsable: f[FIELDS.responsable] || "",
+          formatPropose: f[FIELDS.formatPropose] || "",
+          points: f[FIELDS.points] || "",
+          renfort: f[FIELDS.renfort] || "",
+          formation: f[FIELDS.formation] || ""
+        };
+      }).filter(p => p.debut && p.fin && !isNaN(p.debut) && !isNaN(p.fin));
+    }
+
+    function useDemoMode() {
+      const today = new Date();
+      allPMO = [
+        { id:"PMO001", pays:"MAURITANIE", nom:"PMO LOG", armee:"TERRE", debut:addDays(today,-30), fin:addDays(today,-10), formatDemande:"10 PAX", responsable:"ADU TANDEM" },
+        { id:"PMO002", pays:"JORDANIE", nom:"DIO infanterie", armee:"TERRE", debut:addDays(today,-5), fin:addDays(today,20), formatDemande:"8 PAX", responsable:"UCT" },
+        { id:"PMO003", pays:"LIBAN", nom:"Formation drone", armee:"AIR", debut:addDays(today,8), fin:addDays(today,28), formatDemande:"4 PAX", responsable:"DLIA" },
+        { id:"PMO004", pays:"ÉGYPTE", nom:"Coopération maritime", armee:"MER", debut:addDays(today,35), fin:addDays(today,50), formatDemande:"3 PAX", responsable:"MER" },
+        { id:"PMO005", pays:"SÉNÉGAL", nom:"Soutien santé", armee:"SSA", debut:addDays(today,16), fin:addDays(today,24), formatDemande:"2 PAX", responsable:"SSA" }
+      ];
+      fitToPMO();
+      render();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // VUE / NAVIGATION
+    // ─────────────────────────────────────────────────────────────
+    function getViewStartDate() {
+      if (currentView === "week") return getStartOfWeek(viewStartDate);
+      if (currentView === "month") return getStartOfMonth(viewStartDate);
+      if (currentView === "quarter") return getStartOfQuarter(viewStartDate);
+      if (currentView === "year") return getStartOfYear(viewStartDate);
+      return getStartOfMonth(viewStartDate);
+    }
+
+    function setView(view) {
+      currentView = view;
+      localStorage.setItem("pmo_gantt_view", view);
+      document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("active", b.dataset.view === view));
+      render();
+    }
+
+    function navigate(dir) {
+      const cfg = VIEW_CONFIG[currentView];
+
+      if (typeof cfg.step === "number") viewStartDate = addDays(viewStartDate, dir * cfg.step);
+      else if (cfg.step === "month") viewStartDate = new Date(viewStartDate.getFullYear(), viewStartDate.getMonth() + dir, 1);
+      else if (cfg.step === "quarter") viewStartDate = new Date(viewStartDate.getFullYear(), viewStartDate.getMonth() + dir * 3, 1);
+      else if (cfg.step === "year") viewStartDate = new Date(viewStartDate.getFullYear() + dir, 0, 1);
+
+      render();
+    }
+
+    function goToday() {
+      viewStartDate = new Date();
+      render();
+    }
+
+    function fitToPMO() {
+      const pmos = getFilteredPMO();
+      if (!pmos.length) {
+        viewStartDate = new Date();
+        return;
+      }
+
+      const min = new Date(Math.min(...pmos.map(p => p.debut)));
+      viewStartDate = addDays(min, -7);
+
+      const max = new Date(Math.max(...pmos.map(p => p.fin)));
+      const span = getDaysDiff(min, max);
+
+      if (span <= 30) currentView = "week";
+      else if (span <= 90) currentView = "month";
+      else if (span <= 180) currentView = "quarter";
+      else currentView = "year";
+
+      document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("active", b.dataset.view === currentView));
+      localStorage.setItem("pmo_gantt_view", currentView);
+      render();
+    }
+
+    function updatePeriodLabel(start, days) {
+      const end = addDays(start, days - 1);
+      document.getElementById("periodLabel").textContent =
+        `${formatDateShort(start)} → ${formatDateShort(end)} ${end.getFullYear()}`;
+    }
+
+    function changeSort() {
+      render();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // FILTRES
+    // ─────────────────────────────────────────────────────────────
+    function getFilteredPMO() {
+      const army = document.getElementById("armyFilter")?.value || "";
+      const search = (document.getElementById("searchInput")?.value || "").toUpperCase().trim();
+
+      let pmos = allPMO.filter(p => {
+        if (army && p.armee !== army) return false;
+        if (search) {
+          const haystack = `${p.id} ${p.pays} ${p.nom} ${p.armee} ${p.responsable}`.toUpperCase();
+          if (!haystack.includes(search)) return false;
+        }
+        return true;
+      });
+
+      const sort = document.getElementById("sortSelect")?.value || "country";
+      if (sort === "country") pmos.sort((a,b) => a.pays.localeCompare(b.pays) || a.debut - b.debut);
+      if (sort === "date") pmos.sort((a,b) => a.debut - b.debut);
+      if (sort === "army") pmos.sort((a,b) => a.armee.localeCompare(b.armee) || a.pays.localeCompare(b.pays));
+
+      return pmos;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // RENDU
+    // ─────────────────────────────────────────────────────────────
+    function render() {
+      clearError();
+
+      const pmos = getFilteredPMO();
+      document.getElementById("pmoCount").textContent = `${pmos.length} PMO`;
+
+      const cfg = VIEW_CONFIG[currentView];
+      const start = getViewStartDate();
+      const totalDays = cfg.days;
+      const cellWidth = cfg.cellWidth;
+      const totalWidth = totalDays * cellWidth;
+      const pxPerDay = cellWidth;
+
+      document.documentElement.style.setProperty("--cell-width", `${cellWidth}px`);
+
+      updatePeriodLabel(start, totalDays);
+      renderHeader(start, totalDays, cellWidth);
+      renderRowsAndBars(pmos, start, totalDays, totalWidth, pxPerDay);
+      syncScroll();
+
+      if (!pmos.length) {
+        showError("Aucun PMO à afficher. Vérifie les dates, les filtres ou le mapping des colonnes.");
+      }
+    }
+
+    function renderHeader(start, totalDays, cellWidth) {
+      const monthsHeader = document.getElementById("monthsHeader");
+      const daysHeader = document.getElementById("daysHeader");
+
+      let monthsHtml = "";
+      let daysHtml = "";
+
+      let currentMonth = -1;
+      let monthStart = 0;
+
+      for (let i = 0; i < totalDays; i++) {
+        const d = addDays(start, i);
+        const m = d.getMonth();
+
+        if (m !== currentMonth) {
+          if (currentMonth !== -1) {
+            monthsHtml += `<div class="month-cell" style="width:${(i - monthStart) * cellWidth}px">${MONTHS_SHORT[currentMonth]}</div>`;
+          }
+          currentMonth = m;
+          monthStart = i;
+        }
+
+        const monday = d.getDay() === 1;
+        const monthStartClass = d.getDate() === 1 ? "month-start" : "";
+        const weekendClass = isWeekend(d) ? "weekend" : "";
+        const todayClass = isSameDay(d, new Date()) ? "today" : "";
+
+        let label = d.getDate();
+        if (currentView !== "week" && monday) label = `S${getWeekNumber(d)}`;
+
+        daysHtml += `<div class="day-cell ${weekendClass} ${todayClass} ${monthStartClass}" style="width:${cellWidth}px;min-width:${cellWidth}px">${label}</div>`;
+      }
+
+      monthsHtml += `<div class="month-cell" style="width:${(totalDays - monthStart) * cellWidth}px">${MONTHS_SHORT[currentMonth]}</div>`;
+
+      monthsHeader.innerHTML = monthsHtml;
+      daysHeader.innerHTML = daysHtml;
+    }
+
+    function renderRowsAndBars(pmos, start, totalDays, totalWidth, pxPerDay) {
+      const countryList = document.getElementById("countryList");
+      const grid = document.getElementById("timelineGrid");
+
+      const countries = [...new Set(pmos.map(p => p.pays))].sort();
+
+      countryList.innerHTML = countries.map(country => {
+        const count = pmos.filter(p => p.pays === country).length;
+        return `<div class="country-row">
+          <div class="country-name">${escapeHtml(country)}</div>
+          <div class="country-meta">${count} PMO</div>
+        </div>`;
+      }).join("");
+
+      let gridHtml = "";
+      countries.forEach(() => {
+        gridHtml += `<div class="grid-row">`;
+        for (let i = 0; i < totalDays; i++) {
+          const d = addDays(start, i);
+          const weekendClass = isWeekend(d) ? "weekend" : "";
+          const todayClass = isSameDay(d, new Date()) ? "today" : "";
+          const monthStartClass = d.getDate() === 1 ? "month-start" : "";
+          gridHtml += `<div class="grid-cell ${weekendClass} ${todayClass} ${monthStartClass}" style="width:${pxPerDay}px;min-width:${pxPerDay}px"></div>`;
+        }
+        gridHtml += `</div>`;
+      });
+
+      grid.innerHTML = gridHtml;
+      grid.style.width = `${totalWidth}px`;
+      grid.style.height = `${countries.length * 46}px`;
+
+      const todayOffset = getDaysDiff(start, new Date());
+      if (todayOffset >= 0 && todayOffset <= totalDays) {
+        const todayLine = document.createElement("div");
+        todayLine.className = "today-line";
+        todayLine.style.left = `${todayOffset * pxPerDay}px`;
+        grid.appendChild(todayLine);
+      }
+
+      // Plusieurs PMO peuvent se chevaucher sur un même pays :
+      // on empile légèrement les barres dans la ligne pays.
+      const rowStacks = {};
+
+      pmos.forEach(pmo => {
+        const rowIndex = countries.indexOf(pmo.pays);
+        if (rowIndex < 0) return;
+
+        const offset = getDaysDiff(start, pmo.debut);
+        const duration = Math.max(getDaysDiff(pmo.debut, pmo.fin) + 1, 1);
+
+        let left = offset * pxPerDay;
+        let width = duration * pxPerDay;
+
+        // ignore si totalement hors période
+        if (left + width < 0 || left > totalWidth) return;
+
+        const visibleLeft = Math.max(0, left);
+        const visibleWidth = Math.max(18, Math.min(left + width, totalWidth) - visibleLeft);
+
+        const key = pmo.pays;
+        if (!rowStacks[key]) rowStacks[key] = [];
+        const stackIndex = rowStacks[key].length % 2;
+        rowStacks[key].push(pmo.id);
+
+        const bar = document.createElement("div");
+        bar.className = `pmo-bar ${pmo.armee} ${selectedPMOId === pmo.id ? "selected" : ""}`;
+        bar.style.left = `${visibleLeft}px`;
+        bar.style.top = `${rowIndex * 46 + 7 + stackIndex * 12}px`;
+        bar.style.height = stackIndex === 0 ? "24px" : "21px";
+        bar.style.width = `${visibleWidth}px`;
+        bar.innerHTML = `${escapeHtml(pmo.id)} · ${escapeHtml(pmo.nom)}`;
+        bar.onclick = () => openPanel(pmo);
+        setupTooltip(bar, pmo);
+        grid.appendChild(bar);
+      });
+    }
+
+    function syncScroll() {
+      const countryList = document.getElementById("countryList");
+      const timeline = document.getElementById("timelineScroll");
+      const monthsHeader = document.getElementById("monthsHeader");
+      const daysHeader = document.getElementById("daysHeader");
+
+      timeline.onscroll = () => {
+        countryList.scrollTop = timeline.scrollTop;
+        monthsHeader.style.transform = `translateX(-${timeline.scrollLeft}px)`;
+        daysHeader.style.transform = `translateX(-${timeline.scrollLeft}px)`;
+      };
+
+      countryList.onscroll = () => {
+        timeline.scrollTop = countryList.scrollTop;
+      };
+    }
+
+    function setupTooltip(el, pmo) {
+      const tooltip = document.getElementById("tooltip");
+
+      el.addEventListener("mouseenter", () => {
+        tooltip.innerHTML = `
+          <div class="tooltip-title">${escapeHtml(pmo.id)} · ${escapeHtml(pmo.nom)}</div>
+          <div class="tooltip-row"><span>Pays</span><span>${escapeHtml(pmo.pays)}</span></div>
+          <div class="tooltip-row"><span>Armée</span><span>${escapeHtml(pmo.armee)}</span></div>
+          <div class="tooltip-row"><span>Dates</span><span>${formatDateShort(pmo.debut)} → ${formatDateShort(pmo.fin)}</span></div>
+          <div class="tooltip-row"><span>Format</span><span>${escapeHtml(pmo.formatDemande)}</span></div>
+          <div class="tooltip-row"><span>Resp.</span><span>${escapeHtml(pmo.responsable)}</span></div>
+        `;
+        tooltip.classList.add("visible");
+      });
+
+      el.addEventListener("mousemove", e => {
+        tooltip.style.left = `${e.clientX + 14}px`;
+        tooltip.style.top = `${e.clientY + 14}px`;
+      });
+
+      el.addEventListener("mouseleave", () => tooltip.classList.remove("visible"));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // PANNEAU DETAIL
+    // ─────────────────────────────────────────────────────────────
+    function openPanel(pmo) {
+      selectedPMOId = pmo.id;
+      document.getElementById("panelTitle").textContent = `${pmo.id} · ${pmo.nom}`;
+      document.getElementById("panelContent").innerHTML = `
+        ${detail("Pays", pmo.pays)}
+        ${detail("Armée", pmo.armee)}
+        ${detail("Début", formatDate(pmo.debut))}
+        ${detail("Fin", formatDate(pmo.fin))}
+        ${detail("Format demandé", pmo.formatDemande)}
+        ${detail("Objectifs", pmo.objectifs)}
+        ${detail("Responsable TANDEM", pmo.responsable)}
+        ${detail("Format proposé", pmo.formatPropose)}
+        ${detail("Points particuliers", pmo.points)}
+        ${detail("Besoin en renfort", pmo.renfort)}
+        ${detail("Besoin en formation", pmo.formation)}
+      `;
+      document.getElementById("sidePanel").classList.add("open");
+
+      if (gristReady && pmo.gristId && typeof grist !== "undefined") {
+        try { grist.setSelectedRows([pmo.gristId]); } catch(e) {}
+      }
+
+      render();
+    }
+
+    function closePanel() {
+      selectedPMOId = null;
+      document.getElementById("sidePanel").classList.remove("open");
+      render();
+    }
+
+    function detail(label, value) {
+      if (value === null || value === undefined || value === "") return "";
+      return `<div class="detail-row">
+        <div class="detail-label">${escapeHtml(label)}</div>
+        <div>${escapeHtml(value)}</div>
+      </div>`;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // INIT GRIST
+    // ─────────────────────────────────────────────────────────────
+    async function init() {
+      document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("active", b.dataset.view === currentView));
+
+      try {
+        await grist.ready({
+          requiredAccess: "read table",
+          columns: [
+            { name: FIELDS.id, title: "Id. PMO", type: "Text", optional: true },
+            { name: FIELDS.pays, title: "Pays", type: "Text" },
+            { name: FIELDS.nom, title: "Nom PMO", type: "Text" },
+            { name: FIELDS.armee, title: "Armée", type: "Text", optional: true },
+            { name: FIELDS.debut, title: "Date Début", type: "Date" },
+            { name: FIELDS.fin, title: "Date de Fin", type: "Date" },
+            { name: FIELDS.formatDemande, title: "Format demandé", type: "Text", optional: true },
+            { name: FIELDS.objectifs, title: "Objectifs", type: "Text", optional: true },
+            { name: FIELDS.responsable, title: "Resp. Tandem", type: "Text", optional: true },
+            { name: FIELDS.formatPropose, title: "Format proposé", type: "Text", optional: true },
+            { name: FIELDS.points, title: "Pts. Particuliers", type: "Text", optional: true },
+            { name: FIELDS.renfort, title: "Besoin en renfort", type: "Text", optional: true },
+            { name: FIELDS.formation, title: "Besoin en formation", type: "Text", optional: true }
+          ]
+        });
+
+        gristReady = true;
+
+        grist.onRecords(records => {
+          allPMO = convertRecords(records);
+          if (allPMO.length) {
+            fitToPMO();
+          } else {
+            render();
+            showError("La table est lue, mais aucune ligne PMO exploitable n'a été trouvée. Vérifie les colonnes de dates.");
+          }
+        });
+
+        grist.onRecord(record => {
+          if (!record) return;
+          const converted = convertRecords([record])[0];
+          if (converted) openPanel(converted);
+        });
+
+      } catch (e) {
+        console.warn("Grist non disponible, mode démonstration.", e);
+        useDemoMode();
+      }
+    }
+
+    window.addEventListener("resize", () => render());
+    init();
+  </script>
 </body>
 </html>
