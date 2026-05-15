@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gantt PMO</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f7f7f7;
+    }
+
+    h1 {
+      margin-bottom: 5px;
+    }
+
+    .gantt-wrapper {
+      overflow-x: auto;
+      border: 1px solid #ccc;
+      background: white;
+    }
+
+    .gantt {
+      display: grid;
+      position: relative;
+      min-width: 1400px;
+    }
+
+    .cell {
+      border-right: 1px solid #eee;
+      border-bottom: 1px solid #eee;
+      padding: 4px;
+      font-size: 11px;
+      box-sizing: border-box;
+      height: 34px;
+    }
+
+    .country {
+      background: #f0f0f0;
+      font-weight: bold;
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      border-right: 1px solid #bbb;
+    }
+
+    .header {
+      background: #e9eef5;
+      font-weight: bold;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .pmo {
+      position: absolute;
+      height: 22px;
+      border-radius: 5px;
+      color: white;
+      font-size: 11px;
+      padding: 4px 6px;
+      box-sizing: border-box;
+      overflow: hidden;
+      white-space: nowrap;
+      z-index: 5;
+    }
+
+    .TERRE { background: #4b7f3f; }
+    .AIR { background: #356aa0; }
+    .MER { background: #24476b; }
+    .SSA { background: #b05a5a; }
+    .AUTRES { background: #777; }
+
+    .legend {
+      margin: 10px 0;
+      display: flex;
+      gap: 12px;
+      font-size: 13px;
+    }
+
+    .legend span {
+      padding: 5px 8px;
+      color: white;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Gantt PMO</h1>
+<p>Vue par pays / chronologie / PMO</p>
+
+<div class="legend">
+  <span class="TERRE">TERRE</span>
+  <span class="AIR">AIR</span>
+  <span class="MER">MER</span>
+  <span class="SSA">SSA</span>
+  <span class="AUTRES">AUTRES</span>
+</div>
+
+<div class="gantt-wrapper">
+  <div id="gantt" class="gantt"></div>
+</div>
+
+<script>
+const pmos = [
+  {
+    id: "PMO001",
+    nom: "Formation infanterie",
+    armee: "TERRE",
+    pays: "Jordanie",
+    debut: "2026-05-27",
+    fin: "2026-06-20",
+    format: "DIO"
+  },
+  {
+    id: "PMO002",
+    nom: "Appui planification",
+    armee: "TERRE",
+    pays: "Liban",
+    debut: "2026-06-10",
+    fin: "2026-06-25",
+    format: "Conseil"
+  },
+  {
+    id: "PMO003",
+    nom: "Instruction secours",
+    armee: "SSA",
+    pays: "Jordanie",
+    debut: "2026-07-02",
+    fin: "2026-07-12",
+    format: "Stage"
+  },
+  {
+    id: "PMO004",
+    nom: "Coopération navale",
+    armee: "MER",
+    pays: "Égypte",
+    debut: "2026-08-05",
+    fin: "2026-08-21",
+    format: "Expertise"
+  },
+  {
+    id: "PMO005",
+    nom: "Formation drone",
+    armee: "AIR",
+    pays: "Liban",
+    debut: "2026-09-01",
+    fin: "2026-09-18",
+    format: "Formation"
+  }
+];
+
+// -----------------------------
+// Paramètres principaux
+// -----------------------------
+
+const startDate = new Date("2026-05-01");
+const endDate = new Date("2026-10-31");
+
+const dayWidth = 28;
+const countryColumnWidth = 150;
+const rowHeight = 42;
+const headerHeight = 68;
+
+// -----------------------------
+// Fonctions dates
+// -----------------------------
+
+function daysBetween(a, b) {
+  return Math.round((b - a) / (1000 * 60 * 60 * 24));
+}
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+function formatDay(date) {
+  return String(date.getDate()).padStart(2, "0");
+}
+
+function formatMonth(date) {
+  return date.toLocaleDateString("fr-FR", { month: "short" });
+}
+
+function formatQuarter(date) {
+  return "T" + (Math.floor(date.getMonth() / 3) + 1);
+}
+
+// -----------------------------
+// Construction Gantt
+// -----------------------------
+
+const countries = [...new Set(pmos.map(p => p.pays))].sort();
+const totalDays = daysBetween(startDate, endDate) + 1;
+const gantt = document.getElementById("gantt");
+
+gantt.style.gridTemplateColumns = `${countryColumnWidth}px repeat(${totalDays}, ${dayWidth}px)`;
+gantt.style.gridTemplateRows = `${headerHeight}px repeat(${countries.length}, ${rowHeight}px)`;
+gantt.style.width = `${countryColumnWidth + totalDays * dayWidth}px`;
+gantt.style.height = `${headerHeight + countries.length * rowHeight}px`;
+
+// Coin supérieur gauche
+const corner = document.createElement("div");
+corner.className = "cell country header";
+corner.style.gridColumn = "1";
+corner.style.gridRow = "1";
+corner.innerHTML = "Pays";
+gantt.appendChild(corner);
+
+// Header jours / semaines / mois / trimestres
+for (let i = 0; i < totalDays; i++) {
+  const current = addDays(startDate, i);
+  const cell = document.createElement("div");
+
+  cell.className = "cell header";
+  cell.style.gridColumn = `${i + 2}`;
+  cell.style.gridRow = "1";
+
+  const isMonday = current.getDay() === 1;
+  const isFirstDayOfMonth = current.getDate() === 1;
+
+  cell.innerHTML = `
+    <div>${formatDay(current)}</div>
+    ${isMonday ? `<div>S${getISOWeek(current)}</div>` : ""}
+    ${isFirstDayOfMonth ? `<div>${formatMonth(current)}</div>` : ""}
+    ${isFirstDayOfMonth ? `<div>${formatQuarter(current)}</div>` : ""}
+  `;
+
+  gantt.appendChild(cell);
+}
+
+// Lignes pays
+countries.forEach((country, rowIndex) => {
+  const countryCell = document.createElement("div");
+  countryCell.className = "cell country";
+  countryCell.style.gridColumn = "1";
+  countryCell.style.gridRow = `${rowIndex + 2}`;
+  countryCell.innerHTML = country;
+  gantt.appendChild(countryCell);
+
+  for (let i = 0; i < totalDays; i++) {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.style.gridColumn = `${i + 2}`;
+    cell.style.gridRow = `${rowIndex + 2}`;
+    gantt.appendChild(cell);
+  }
+});
+
+// Barres PMO
+pmos.forEach(pmo => {
+  const rowIndex = countries.indexOf(pmo.pays);
+  const debut = new Date(pmo.debut);
+  const fin = new Date(pmo.fin);
+
+  const offsetDays = daysBetween(startDate, debut);
+  const durationDays = daysBetween(debut, fin) + 1;
+
+  const bar = document.createElement("div");
+  bar.className = `pmo ${pmo.armee}`;
+  bar.style.left = `${countryColumnWidth + offsetDays * dayWidth}px`;
+  bar.style.top = `${headerHeight + rowIndex * rowHeight + 9}px`;
+  bar.style.width = `${durationDays * dayWidth - 4}px`;
+
+  bar.title = `${pmo.id} - ${pmo.nom}
+Pays : ${pmo.pays}
+Armée : ${pmo.armee}
+Début : ${pmo.debut}
+Fin : ${pmo.fin}
+Format : ${pmo.format}`;
+
+  bar.innerHTML = `${pmo.id} - ${pmo.nom}`;
+
+  gantt.appendChild(bar);
+});
+</script>
+
+</body>
+</html>
